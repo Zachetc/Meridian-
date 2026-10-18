@@ -1,0 +1,254 @@
+[
+  {
+    "id": "chokepoint1",
+    "name": "Suez Canal",
+    "longitude": 32.43688221,
+    "latitude": 30.59334599,
+    "radiusKm": 95,
+    "region": "Middle East",
+    "category": "Chokepoint"
+  },
+  {
+    "id": "chokepoint2",
+    "name": "Panama Canal",
+    "longitude": -79.76723825,
+    "latitude": 9.120512367,
+    "radiusKm": 65,
+    "region": "Americas",
+    "category": "Chokepoint"
+  },
+  {
+    "id": "chokepoint3",
+    "name": "Bosporus Strait",
+    "longitude": 29.09150126,
+    "latitude": 41.16928167,
+    "radiusKm": 22,
+    "region": "Europe",
+    "category": "Chokepoint"
+  },
+  {
+    "id": "chokepoint4",
+    "name": "Bab el-Mandeb Strait",
+    "longitude": 43.34954476,
+    "latitude": 12.78859715,
+    "radiusKm": 40,
+    "region": "Middle East",
+    "category": "Chokepoint"
+  },
+  {
+    "id": "chokepoint5",
+    "name": "Malacca Strait",
+    "longitude": 102.6651061,
+    "latitude": 1.516954817,
+    "radiusKm": 150,
+    "region": "Asia",
+    "category": "Chokepoint"
+  },
+  {
+    "id": "chokepoint6",
+    "name": "Strait of Hormuz",
+    "longitude": 56.85984844,
+    "latitude": 26.29685349,
+    "radiusKm": 65,
+    "region": "Middle East",
+    "category": "Chokepoint"
+  },
+  {
+    "id": "chokepoint7",
+    "name": "Cape of Good Hope",
+    "longitude": 20.88273666,
+    "latitude": -34.92728556,
+    "radiusKm": 180,
+    "region": "Africa",
+    "category": "Alternative passage"
+  },
+  {
+    "id": "chokepoint8",
+    "name": "Gibraltar Strait",
+    "longitude": -5.754895722,
+    "latitude": 35.94227416,
+    "radiusKm": 45,
+    "region": "Europe",
+    "category": "Chokepoint"
+  },
+  {
+    "id": "chokepoint9",
+    "name": "Dover Strait",
+    "longitude": 1.505839717,
+    "latitude": 51.03022414,
+    "radiusKm": 45,
+    "region": "Europe",
+    "category": "Chokepoint"
+  },
+  {
+    "id": "chokepoint10",
+    "name": "Oresund Strait",
+    "longitude": 12.85079477,
+    "latitude": 55.50784043,
+    "radiusKm": 35,
+    "region": "Europe",
+    "category": "Chokepoint"
+  },
+  {
+    "id": "chokepoint11",
+    "name": "Taiwan Strait",
+    "longitude": 119.8313644,
+    "latitude": 24.72350972,
+    "radiusKm": 160,
+    "region": "Asia",
+    "category": "Chokepoint"
+  },
+  {
+    "id": "chokepoint12",
+    "name": "Korea Strait",
+    "longitude": 129.209206,
+    "latitude": 34.13076811,
+    "radiusKm": 130,
+    "region": "Asia",
+    "category": "Chokepoint"
+  },
+  {
+    "id": "chokepoint13",
+    "name": "Tsugaru Strait",
+    "longitude": 140.3532743,
+    "latitude": 41.32803599,
+    "radiusKm": 45,
+    "region": "Asia",
+    "category": "Chokepoint"
+  },
+  {
+    "id": "chokepoint14",
+    "name": "Luzon Strait",
+    "longitude": 121.352295045579,
+    "latitude": 20.488890710794,
+    "radiusKm": 170,
+    "region": "Asia",
+    "category": "Chokepoint"
+  },
+  {
+    "id": "chokepoint15",
+    "name": "Lombok Strait",
+    "longitude": 115.801433044024,
+    "latitude": -8.41914514129252,
+    "radiusKm": 45,
+    "region": "Asia",
+    "category": "Chokepoint"
+  },
+  {
+    "id": "chokepoint16",
+    "name": "Ombai Strait",
+    "longitude": 125.090981399512,
+    "latitude": -8.39854120024364,
+    "radiusKm": 65,
+    "region": "Asia",
+    "category": "Chokepoint"
+  },
+  {
+    "id": "chokepoint17",
+    "name": "Bohai Strait",
+    "longitude": 120.900049176636,
+    "latitude": 38.373044249766,
+    "radiusKm": 65,
+    "region": "Asia",
+    "category": "Chokepoint"
+  },
+  {
+    "id": "chokepoint18",
+    "name": "Torres Strait",
+    "longitude": 142.247528743501,
+    "latitude": -9.86253413199954,
+    "radiusKm": 110,
+    "region": "Oceania",
+    "category": "Chokepoint"
+  },
+  {
+    "id": "chokepoint19",
+    "name": "Sunda Strait",
+    "longitude": 105.775219888066,
+    "latitude": -5.96684057041462,
+    "radiusKm": 50,
+    "region": "Asia",
+    "category": "Chokepoint"
+  },
+  {
+    "id": "chokepoint20",
+    "name": "Makassar Strait",
+    "longitude": 119.257065444388,
+    "latitude": 0.352280586988657,
+    "radiusKm": 130,
+    "region": "Asia",
+    "category": "Chokepoint"
+  },
+  {
+    "id": "chokepoint21",
+    "name": "Magellan Strait",
+    "longitude": -69.5948324606974,
+    "latitude": -52.6403396677892,
+    "radiusKm": 100,
+    "region": "Americas",
+    "category": "Chokepoint"
+  },
+  {
+    "id": "chokepoint22",
+    "name": "Yucatan Channel",
+    "longitude": -85.6472792223515,
+    "latitude": 21.8152541926988,
+    "radiusKm": 130,
+    "region": "Americas",
+    "category": "Chokepoint"
+  },
+  {
+    "id": "chokepoint23",
+    "name": "Windward Passage",
+    "longitude": -73.6975398964955,
+    "latitude": 19.9861871932071,
+    "radiusKm": 90,
+    "region": "Americas",
+    "category": "Chokepoint"
+  },
+  {
+    "id": "chokepoint24",
+    "name": "Mona Passage",
+    "longitude": -67.7113544869163,
+    "latitude": 18.4487355684237,
+    "radiusKm": 85,
+    "region": "Americas",
+    "category": "Chokepoint"
+  },
+  {
+    "id": "chokepoint25",
+    "name": "Balabac Strait",
+    "longitude": 117.11462168266297,
+    "latitude": 7.413614993177675,
+    "radiusKm": 65,
+    "region": "Asia",
+    "category": "Chokepoint"
+  },
+  {
+    "id": "chokepoint26",
+    "name": "Bering Strait",
+    "longitude": -165.54982861145731,
+    "latitude": 65.96648859155934,
+    "radiusKm": 110,
+    "region": "Arctic",
+    "category": "Chokepoint"
+  },
+  {
+    "id": "chokepoint27",
+    "name": "Mindoro Strait",
+    "longitude": 120.40342787801248,
+    "latitude": 12.468315371959248,
+    "radiusKm": 65,
+    "region": "Asia",
+    "category": "Chokepoint"
+  },
+  {
+    "id": "chokepoint28",
+    "name": "Kerch Strait",
+    "longitude": 36.54390169965004,
+    "latitude": 45.26676309041701,
+    "radiusKm": 25,
+    "region": "Europe",
+    "category": "Chokepoint"
+  }
+]
