@@ -31,7 +31,7 @@ class TrafficReader:
         result=dict(retrievedAt=now.isoformat(),sourceUpdatedAt=row['updated_at'].isoformat() if row else None,
             source='AISStream',coverage='Global receiver network; incomplete reception',rejected=status.get('rejected',0),
             globalConnected=healthy,globalConfigured=True,persisted=True,total=counts['total'],fresh=counts['fresh'],
-            collector={k:status.get(k) for k in ['connected','lastMessageAt','received','persisted','queueDepth','reconnects','rejected','evicted']})
+            collector={k:status.get(k) for k in ['connected','lastMessageAt','received','persisted','queueDepth','reconnects','rejected','evicted','storagePaused','databaseAndWalBytes','storageBudgetBytes']})
         self.cached=result;self.cached_at=time.monotonic();return result
     async def query(self,scope='Global',mmsi=None,after=0,limit=500):
         if not 1<=limit<=500 or after<0: raise ValueError('Invalid page')

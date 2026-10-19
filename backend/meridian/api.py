@@ -22,7 +22,7 @@ async def lifespan(app):
     app.state.lock=asyncio.Lock();app.state.traffic=TrafficReader(pool)
     yield
     await client.aclose();await pool.close()
-app=FastAPI(title='Meridian Maritime API',version='0.4.0',lifespan=lifespan)
+app=FastAPI(title='Meridian Maritime API',version='0.5.0',lifespan=lifespan,docs_url=None,redoc_url=None,openapi_url=None)
 async def authorize(authorization:str|None=Header(default=None)):
     expected='Bearer '+os.environ.get('API_TOKEN','')
     if not authorization or not secrets.compare_digest(authorization,expected):raise HTTPException(401,'Bearer token required')

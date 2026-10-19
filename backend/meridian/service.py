@@ -1,5 +1,5 @@
 """One supervised API + optional continuous collector process for a container host."""
-import asyncio,os
+import asyncio,os,logging
 import uvicorn
 from .migrate import migrate
 async def serve():
@@ -23,4 +23,6 @@ async def serve():
             collector.cancel()
             await asyncio.gather(collector,return_exceptions=True)
         await api
-if __name__=='__main__':asyncio.run(serve())
+if __name__=='__main__':
+    logging.basicConfig(level=logging.INFO)
+    asyncio.run(serve())
