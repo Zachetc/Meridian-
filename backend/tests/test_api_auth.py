@@ -10,6 +10,7 @@ def test_api_requires_token_and_does_not_publish_schema(monkeypatch):
                 assert (await c.get(path)).status_code==401
                 assert (await c.get(path,headers={'Authorization':'Bearer wrong'})).status_code==401
             assert (await c.post('/scenarios',json={})).status_code==401
+            assert (await c.post('/subscriptions',json={'mmsis':[230000001]})).status_code==401
             for path in ['/docs','/redoc','/openapi.json']:assert (await c.get(path)).status_code==404
             assert (await c.get('/health')).status_code==200
     asyncio.run(run())

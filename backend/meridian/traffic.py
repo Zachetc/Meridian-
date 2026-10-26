@@ -31,7 +31,7 @@ class TrafficReader:
         result=dict(retrievedAt=now.isoformat(),sourceUpdatedAt=row['updated_at'].isoformat() if row else None,
             source='AISStream',coverage='Global receiver network; incomplete reception',rejected=status.get('rejected',0),
             globalConnected=healthy,globalConfigured=True,persisted=True,total=counts['total'],fresh=counts['fresh'],
-            collector={k:status.get(k) for k in ['connected','lastMessageAt','received','persisted','queueDepth','reconnects','rejected','evicted','storagePaused','databaseAndWalBytes','storageBudgetBytes']})
+            collector={k:status.get(k) for k in ['connected','lastMessageAt','received','persisted','queueDepth','reconnects','rejected','evicted','storagePaused','databaseAndWalBytes','storageBudgetBytes','archiveMode','passageSampleLimit','retentionDays','watchedVessels']})
         self.cached=result;self.cached_at=time.monotonic();return result
     async def query(self,scope='Global',mmsi=None,after=0,limit=500):
         if not 1<=limit<=500 or after<0: raise ValueError('Invalid page')
@@ -40,13 +40,18 @@ class TrafficReader:
         age='' if mmsi else " AND observed_at>=now()-interval '24 hours'"
         count=await self.pool.fetchval('SELECT count(*) FROM latest_position WHERE '+where+age,*args)
         n=len(args)
-        rows=await self.pool.fetch('SELECT payload,observed_at FROM latest_position WHERE '+where+age+f' AND mmsi>${n+1} ORDER BY mmsi LIMIT ${n+2}',*args,after,limit+1)
+        sampled=scope in PASSAGES and mmsi is None
+        if sampled:
+            limit=min(limit,10)
+            rows=await self.pool.fetch('SELECT payload,observed_at FROM latest_position WHERE '+where+age+f' ORDER BY observed_at DESC,mmsi LIMIT ${n+1}',*args,limit)
+        else:
+            rows=await self.pool.fetch('SELECT payload,observed_at FROM latest_position WHERE '+where+age+f' AND mmsi>${n+1} ORDER BY mmsi LIMIT ${n+2}',*args,after,limit+1)
         vessels=[]
         for r in rows[:limit]:
             v=json_value(r['payload']);v['observedAt']=r['observed_at'].isoformat();vessels.append(v)
         summary=await self.summary()
         return dict(**summary,vessels=vessels,scope=str(mmsi) if mmsi else scope,matched=count,limit=limit,
-            nextCursor=vessels[-1]['mmsi'] if len(rows)>limit else None)
+            nextCursor=vessels[-1]['mmsi'] if len(rows)>limit and not sampled else None)
     async def history(self,mmsi,before=None,limit=1500):
         args=[mmsi];where='mmsi=$1'
         if before:
@@ -55,4 +60,4 @@ class TrafficReader:
             args.append(date);where+=' AND observed_at<$2'
         rows=await self.pool.fetch('SELECT observed_at,ST_X(position::geometry) AS longitude,ST_Y(position::geometry) AS latitude,speed_knots FROM observation WHERE '+where+f' ORDER BY observed_at DESC LIMIT ${len(args)+1}',*args,limit+1)
         points=[dict(observedAt=r['observed_at'].isoformat(),longitude=r['longitude'],latitude=r['latitude'],speed=r['speed_knots'],source='AISStream') for r in rows[:limit]]
-        return dict(points=list(reversed(points)),limit=limit,nextBefore=points[-1]['observedAt'] if len(rows)>limit else None,source='AISStream',continuousCollector=True)
+        return dict(points=list(reversed(points)),limit=limit,nextBefore=points[-1]['observedAt'] if len(rows)>limit else None,source='AISStream',continuousCollector=False,archiveMode='hourly-sampled',retentionDays=7)

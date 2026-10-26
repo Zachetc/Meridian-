@@ -28,6 +28,20 @@ async def authorize(authorization:str|None=Header(default=None)):
     if not authorization or not secrets.compare_digest(authorization,expected):raise HTTPException(401,'Bearer token required')
 @app.get('/health')
 async def health():return {'status':'ok','modelVersion':CostModel.version}
+class TrackingInput(BaseModel):
+    mmsis:list[int]=Field(max_length=500)
+
+@app.post('/subscriptions',dependencies=[Depends(authorize)])
+async def subscriptions(body:TrackingInput):
+    ids=set(body.mmsis)
+    if any(not 100000000<=x<=999999999 for x in ids):raise HTTPException(400,'Invalid MMSI')
+    async with app.state.store.pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute('SELECT pg_advisory_xact_lock(4326006)')
+            existing={r['mmsi'] for r in await conn.fetch('SELECT mmsi FROM tracking_subscription')}
+            if len(existing|ids)>500:raise HTTPException(409,'Tracking subscription capacity reached')
+            await conn.executemany('INSERT INTO tracking_subscription(mmsi) VALUES($1) ON CONFLICT DO NOTHING',[(x,) for x in ids])
+    return {'ok':True,'subscribed':len(existing|ids)}
 @app.get('/vessels',dependencies=[Depends(authorize)])
 async def vessels(watch:str=''):
     # Summary only: the browser requests a passage or MMSI separately.

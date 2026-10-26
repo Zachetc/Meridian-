@@ -13,12 +13,12 @@ def suspect_jump(previous,current):
 
 class PostgresStore:
     def __init__(self,pool:asyncpg.Pool):self.pool=pool
-    async def save_snapshot(self,raw,snapshot):
+    async def save_snapshot(self,raw,snapshot,hourly=False):
         encoded=json.dumps(raw,sort_keys=True,separators=(',',':'))
         digest=hashlib.sha256(encoded.encode()).hexdigest()
         async with self.pool.acquire() as conn:
             async with conn.transaction():
-                sid=await conn.fetchval('INSERT INTO raw_snapshot(source,payload,payload_sha256) VALUES($1,$2::jsonb,$3) ON CONFLICT(payload_sha256) DO UPDATE SET payload_sha256=EXCLUDED.payload_sha256 RETURNING id',snapshot.get('source','digitraffic'),encoded,digest)
+                sid=None
                 if not snapshot['vessels']:return sid
                 rows=await conn.fetch('SELECT mmsi,payload FROM latest_position WHERE mmsi=ANY($1::bigint[])',[v['mmsi'] for v in snapshot['vessels']])
                 prior={r['mmsi']:json.loads(r['payload']) if isinstance(r['payload'],str) else r['payload'] for r in rows}
@@ -34,8 +34,21 @@ class PostgresStore:
                 await conn.executemany('''INSERT INTO vessel(mmsi,name,kind,destination,metadata_at) VALUES($1,$2,$3,$4,$5)
                     ON CONFLICT(mmsi) DO UPDATE SET name=EXCLUDED.name,kind=EXCLUDED.kind,destination=EXCLUDED.destination,metadata_at=EXCLUDED.metadata_at
                     WHERE vessel.metadata_at IS NULL OR EXCLUDED.metadata_at>=vessel.metadata_at''',[(v['mmsi'],v['name'],v['kind'],v['destination'],parse_date(v.get('metadataAt'))) for v in accepted])
-                await conn.executemany('''INSERT INTO observation(mmsi,observed_at,position,speed_knots,course_degrees,snapshot_id)
-                    VALUES($1,$2,ST_SetSRID(ST_MakePoint($3,$4),4326)::geography,$5,$6,$7) ON CONFLICT(mmsi,observed_at) DO NOTHING''',[(v['mmsi'],parse_date(v['observedAt']),v['longitude'],v['latitude'],v['speed'],v['course'],sid) for v in accepted])
+                archived=accepted
+                if hourly:
+                    # Source-hour identity survives process restarts. Latest state
+                    # can refresh independently without growing the track archive.
+                    hours=await conn.fetch("SELECT mmsi,date_trunc('hour',observed_at AT TIME ZONE 'UTC') AS hour FROM observation WHERE mmsi=ANY($1::bigint[]) AND observed_at>=now()-interval '25 hours'",[v['mmsi'] for v in accepted])
+                    seen={(r['mmsi'],r['hour']) for r in hours};archived=[]
+                    for v in accepted:
+                        key=(v['mmsi'],parse_date(v['observedAt']).replace(minute=0,second=0,microsecond=0,tzinfo=None))
+                        if key not in seen:archived.append(v);seen.add(key)
+                    encoded=json.dumps({'source':'AISStream','messages':archived},sort_keys=True,separators=(',',':'))
+                    digest=hashlib.sha256(encoded.encode()).hexdigest()
+                if archived:
+                    sid=await conn.fetchval('INSERT INTO raw_snapshot(source,payload,payload_sha256) VALUES($1,$2::jsonb,$3) ON CONFLICT(payload_sha256) DO UPDATE SET payload_sha256=EXCLUDED.payload_sha256 RETURNING id',snapshot.get('source','digitraffic'),encoded,digest)
+                    await conn.executemany('''INSERT INTO observation(mmsi,observed_at,position,speed_knots,course_degrees,snapshot_id)
+                    VALUES($1,$2,ST_SetSRID(ST_MakePoint($3,$4),4326)::geography,$5,$6,$7) ON CONFLICT(mmsi,observed_at) DO NOTHING''',[(v['mmsi'],parse_date(v['observedAt']),v['longitude'],v['latitude'],v['speed'],v['course'],sid) for v in archived])
                 await conn.executemany('''INSERT INTO latest_position(mmsi,observed_at,position,payload)
                     VALUES($1,$2,ST_SetSRID(ST_MakePoint($3,$4),4326)::geography,$5::jsonb)
                     ON CONFLICT(mmsi) DO UPDATE SET observed_at=excluded.observed_at,position=excluded.position,payload=excluded.payload
