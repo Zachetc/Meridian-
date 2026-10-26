@@ -1,5 +1,5 @@
 import hashlib,json,math
-from datetime import datetime
+from datetime import datetime,timezone
 import asyncpg
 
 def parse_date(s):return datetime.fromisoformat(s.replace('Z','+00:00')) if s else None
@@ -41,7 +41,7 @@ class PostgresStore:
                     hours=await conn.fetch("SELECT mmsi,date_trunc('hour',observed_at AT TIME ZONE 'UTC') AS hour FROM observation WHERE mmsi=ANY($1::bigint[]) AND observed_at>=now()-interval '25 hours'",[v['mmsi'] for v in accepted])
                     seen={(r['mmsi'],r['hour']) for r in hours};archived=[]
                     for v in accepted:
-                        key=(v['mmsi'],parse_date(v['observedAt']).replace(minute=0,second=0,microsecond=0,tzinfo=None))
+                        key=(v['mmsi'],parse_date(v['observedAt']).astimezone(timezone.utc).replace(minute=0,second=0,microsecond=0,tzinfo=None))
                         if key not in seen:archived.append(v);seen.add(key)
                     encoded=json.dumps({'source':'AISStream','messages':archived},sort_keys=True,separators=(',',':'))
                     digest=hashlib.sha256(encoded.encode()).hexdigest()

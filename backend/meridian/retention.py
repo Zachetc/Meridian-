@@ -34,7 +34,7 @@ async def maintain(pool, budget):
             # VACUUM FULL rewrites just these archive tables, not the database.
             # Existing latest_position, vessel and tracking goals are untouched.
             if size >= budget * .8:
-                for table in ('raw_snapshot','observation','observation_quarantine'):
+                for table in ('observation','observation_quarantine','raw_snapshot'):
                     size = await conn.fetchval("SELECT pg_database_size(current_database())+coalesce((SELECT sum(size) FROM pg_ls_waldir()),0)")
                     relation = await conn.fetchval('SELECT pg_total_relation_size($1::regclass)',table)
                     if size + relation*2 > 450*1024*1024:
