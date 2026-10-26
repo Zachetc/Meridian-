@@ -9,17 +9,19 @@ import asyncpg
 from websockets.asyncio.client import connect
 from .aisstream import StreamDecoder
 from .store import PostgresStore
+from .sampling import PassageSampler
+from .retention import maintain
 
 log=logging.getLogger('meridian.collector')
 async def main():
     key=os.environ.get('AISSTREAM_API_KEY')
     if not key:raise RuntimeError('Set AISSTREAM_API_KEY; no global feed is fabricated without credentials')
     pool=await asyncpg.create_pool(os.environ['DATABASE_URL'],min_size=1,max_size=5)
-    store=PostgresStore(pool);decoder=StreamDecoder();queue=asyncio.Queue(maxsize=20000)
+    store=PostgresStore(pool);decoder=StreamDecoder();queue=asyncio.Queue(maxsize=2000);sampler=PassageSampler()
     counts={'received':0,'persisted':0,'reconnects':0,'lastMessageAt':None,'connected':False,'storagePaused':False}
     budget=int(os.getenv('MAX_DATABASE_MB','250'))*1024*1024
     if budget<64*1024*1024:raise RuntimeError('MAX_DATABASE_MB must be at least 64')
-    last_log=0
+    last_log=0;last_maintenance=0;last_subscriptions=0
     async def capacity():
         # Include WAL: database size alone understates the starter volume footprint.
         size=await pool.fetchval("SELECT pg_database_size(current_database()) + coalesce((SELECT sum(size) FROM pg_ls_waldir()),0)")
@@ -29,13 +31,20 @@ async def main():
     for row in await pool.fetch('SELECT mmsi,payload FROM stream_metadata'):
         decoder._put(decoder.metadata,row['mmsi'],json.loads(row['payload']))
     async def status():
-        await pool.execute("INSERT INTO collector_status(id,payload) VALUES('aisstream',$1::jsonb) ON CONFLICT(id) DO UPDATE SET updated_at=now(),payload=excluded.payload",json.dumps({**counts,'queueDepth':queue.qsize(),'rejected':decoder.rejected,'evicted':decoder.evicted}))
+        await pool.execute("INSERT INTO collector_status(id,payload) VALUES('aisstream',$1::jsonb) ON CONFLICT(id) DO UPDATE SET updated_at=now(),payload=excluded.payload",json.dumps({**counts,'queueDepth':queue.qsize(),'rejected':decoder.rejected,'evicted':decoder.evicted,'archiveMode':'hourly-sampled','passageSampleLimit':10,'retentionDays':7,'watchedVessels':len(sampler.watched)}))
+    async def maintenance():
+        nonlocal last_maintenance,last_subscriptions
+        if time.monotonic()-last_subscriptions>30:
+            sampler.watched={r['mmsi'] for r in await pool.fetch('SELECT mmsi FROM tracking_subscription ORDER BY created_at LIMIT 500')}
+            last_subscriptions=time.monotonic()
+        if time.monotonic()-last_maintenance>3600:
+            await maintain(pool,budget);last_maintenance=time.monotonic()
     async def flush():
         nonlocal last_log
         while True:
             batch=[]
             try:batch.append(await asyncio.wait_for(queue.get(),timeout=10))
-            except asyncio.TimeoutError:await status();continue
+            except asyncio.TimeoutError:await maintenance();await status();continue
             deadline=time.monotonic()+2
             while len(batch)<500 and time.monotonic()<deadline:
                 try:batch.append(await asyncio.wait_for(queue.get(),timeout=max(.01,deadline-time.monotonic())))
@@ -46,12 +55,14 @@ async def main():
             attempt=0
             while True:
                 try:
+                    await maintenance()
                     while not await capacity():
                         counts['connected']=False
                         await status()
                         log.warning('AIS archive paused at storage budget; existing observations retained; reception gap begins')
                         await asyncio.sleep(30)
-                    await store.save_snapshot({'source':'AISStream','messages':batch},snapshot)
+                        await maintenance()
+                    await store.save_snapshot({'source':'AISStream','messages':batch},snapshot,hourly=True)
                     records=[(mmsi,decoder.metadata[mmsi]['timestamp']/1000,json.dumps(decoder.metadata[mmsi])) for mmsi in {v['mmsi'] for v in batch} if mmsi in decoder.metadata]
                     if records:await pool.executemany('INSERT INTO stream_metadata(mmsi,observed_at,payload) VALUES($1,to_timestamp($2),$3::jsonb) ON CONFLICT(mmsi) DO UPDATE SET observed_at=excluded.observed_at,payload=excluded.payload WHERE excluded.observed_at>stream_metadata.observed_at',records)
                     counts['persisted']+=len(batch)
@@ -59,9 +70,9 @@ async def main():
                         # Read a saved ping back with its original event time and coordinates.
                         v=batch[-1]
                         from .store import parse_date
-                        verified=await pool.fetchval('SELECT EXISTS(SELECT 1 FROM observation WHERE mmsi=$1 AND observed_at=$2 AND abs(ST_X(position::geometry)-$3)<0.0000001 AND abs(ST_Y(position::geometry)-$4)<0.0000001)',v['mmsi'],parse_date(v['observedAt']),v['longitude'],v['latitude'])
+                        verified=await pool.fetchval('SELECT EXISTS(SELECT 1 FROM latest_position WHERE mmsi=$1 AND observed_at=$2 AND abs(ST_X(position::geometry)-$3)<0.0000001 AND abs(ST_Y(position::geometry)-$4)<0.0000001)',v['mmsi'],parse_date(v['observedAt']),v['longitude'],v['latitude'])
                         fleet=await pool.fetchval('SELECT count(*) FROM latest_position')
-                        log.info('AIS received=%s archivedIncludingQuarantine=%s vessels=%s pingReadback=%s mmsi=%s originalPing=%s storageBytes=%s',counts['received'],counts['persisted'],fleet,verified,v['mmsi'],v['observedAt'],counts['databaseAndWalBytes'])
+                        log.info('AIS received=%s sampledStateWrites=%s vessels=%s pingReadback=%s mmsi=%s originalPing=%s storageBytes=%s',counts['received'],counts['persisted'],fleet,verified,v['mmsi'],v['observedAt'],counts['databaseAndWalBytes'])
                         last_log=time.monotonic()
                     await status();break
                 except (asyncpg.PostgresError,OSError):
@@ -86,7 +97,7 @@ async def main():
                             continue
                         counts['received']+=1;counts['lastMessageAt']=datetime.now(timezone.utc).isoformat()
                         v=decoder.decode(envelope)
-                        if v:await queue.put(v)
+                        if v and sampler.accept(v):await queue.put(v)
             except asyncio.CancelledError:raise
             except Exception as exc:
                 # Do not log provider payloads or exception strings that could echo credentials.
@@ -94,6 +105,7 @@ async def main():
                 log.warning('AIS connection interrupted (%s); reconnecting',type(exc).__name__)
                 await asyncio.sleep(min(60,2**min(attempt,6))+random.random())
     try:
+        await status();await maintenance()
         async with asyncio.TaskGroup() as group:group.create_task(flush());group.create_task(receive())
     finally:await pool.close()
 if __name__=='__main__':
