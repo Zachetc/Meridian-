@@ -9,6 +9,12 @@ import logging
 
 log = logging.getLogger('meridian.retention')
 
+def rewrite_reserve(allocated_bytes, live_bytes):
+    # A FULL rewrite copies live rows, not dead pages. Reserve six times their
+    # measured tuple bytes for indexes/WAL plus 32 MiB overhead. The allocated
+    # relation bound remains useful for small, already compact relations.
+    return min(allocated_bytes*2, live_bytes*6 + 32*1024*1024)
+
 async def maintain(pool, budget):
     async with pool.acquire() as conn:
         if not await conn.fetchval('SELECT pg_try_advisory_lock(4326005)'): return
@@ -37,12 +43,16 @@ async def maintain(pool, budget):
                 for table in ('observation','observation_quarantine','raw_snapshot'):
                     size = await conn.fetchval("SELECT pg_database_size(current_database())+coalesce((SELECT sum(size) FROM pg_ls_waldir()),0)")
                     relation = await conn.fetchval('SELECT pg_total_relation_size($1::regclass)',table)
-                    if size + relation*2 > 450*1024*1024:
+                    live = await conn.fetchval(f'SELECT coalesce(sum(pg_column_size(t)),0)::bigint FROM {table} t')
+                    reserve = rewrite_reserve(relation,live)
+                    log.info('Compaction sizing table=%s allocatedBytes=%s liveTupleBytes=%s reservedBytes=%s databaseAndWalBytes=%s',table,relation,live,reserve,size)
+                    if size + reserve > 450*1024*1024:
                         log.warning('Skipping physical compaction of %s: insufficient measured headroom',table)
                         continue
                     await conn.execute('SET lock_timeout TO \'5s\'')
                     await conn.execute(f'VACUUM (FULL, ANALYZE) {table}')
-                    log.info('Compacted archive table %s',table)
+                    after = await conn.fetchval('SELECT pg_total_relation_size($1::regclass)',table)
+                    log.info('Compacted archive table %s from %s to %s bytes',table,relation,after)
             else:
                 for table in ('observation','raw_snapshot','observation_quarantine'):
                     await conn.execute(f'VACUUM (ANALYZE) {table}')

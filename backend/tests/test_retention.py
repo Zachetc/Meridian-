@@ -4,6 +4,13 @@ from datetime import datetime,timezone,timedelta
 from pathlib import Path
 import pytest
 
+def test_rewrite_reserve_uses_retained_rows_not_deleted_heap_pages():
+    from meridian.retention import rewrite_reserve
+    mib=1024*1024
+    assert rewrite_reserve(150*mib,2*mib)==44*mib
+    assert 256*mib+rewrite_reserve(150*mib,2*mib)<450*mib
+    assert 400*mib+rewrite_reserve(150*mib,100*mib)>450*mib
+
 @pytest.mark.skipif(not os.getenv('DATABASE_URL'),reason='Disposable PostGIS required')
 def test_hourly_archive_restart_and_retention_preserve_latest():
     async def run():
@@ -25,7 +32,7 @@ def test_hourly_archive_restart_and_retention_preserve_latest():
             await save(now-timedelta(days=8),False)
             await save(now+timedelta(seconds=90),False) # old dense archive
             await pool.execute('INSERT INTO tracking_subscription(mmsi) VALUES(230000099) ON CONFLICT DO NOTHING')
-            await maintain(pool,100000000000) # ordinary vacuum, no compaction needed in CI
+            await maintain(pool,1) # force physical compaction in disposable CI
             assert await pool.fetchval('SELECT count(*) FROM observation WHERE mmsi=230000099')==1
             assert await pool.fetchval('SELECT observed_at FROM observation WHERE mmsi=230000099')==now+timedelta(seconds=90)
             assert await pool.fetchval('SELECT observed_at FROM latest_position WHERE mmsi=230000099')==now+timedelta(seconds=90)
