@@ -20,3 +20,10 @@
 - No secrets in git, frontend bundles, logs, or status files.
 - AIS messages are incomplete coverage; cargo type, home country, and cost estimates must be clearly labeled when inferred or modeled.
 - Keep work incremental and update this file after verified milestones.
+
+## Frontend source discovery (2026-10-29)
+- Existing hosted Meridian Site: https://meridian-maritime.ardentchick1.chatgpt.site
+- Site project slug: `meridian-maritime`; this frontend is a separately hosted ChatGPT Site, not a file in the GitHub backend repository.
+- Do not claim the Site is integrated or deployed from GitHub without inspecting its complete source and verifying server-side `MARITIME_API_URL` / `MARITIME_API_TOKEN` configuration.
+- Railway API public domain: `https://meridian-api-production-24fe.up.railway.app` (domain present in Railway configuration; public HTTP response could not be verified from current execution environment).
+- **Release blocker:** current connected tools cannot edit or redeploy the existing ChatGPT Site directly, and the complete Site source is not available in the GitHub repository. Obtain/export the full Site source or use a Site-editing capability before migrating or switching public links.
