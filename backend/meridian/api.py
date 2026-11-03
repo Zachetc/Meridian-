@@ -93,3 +93,24 @@ async def observed_history(mmsi:int,before:str|None=None):
     if not 100000000<=mmsi<=999999999:raise HTTPException(400,'Invalid MMSI')
     try:return await app.state.traffic.history(mmsi,before)
     except ValueError as e:raise HTTPException(400,str(e))
+
+# Public portfolio dashboard. Only bounded, read-only AIS passage samples are exposed.
+from pathlib import Path
+from fastapi.responses import HTMLResponse
+from .traffic import PASSAGES
+
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+async def dashboard():
+    return HTMLResponse(Path(__file__).with_name("dashboard.html").read_text(encoding="utf-8"),
+                        headers={"Cache-Control":"public, max-age=300","X-Content-Type-Options":"nosniff"})
+
+@app.get("/public/traffic", include_in_schema=False)
+async def public_traffic(scope: str = "chokepoint1"):
+    if scope not in PASSAGES:
+        raise HTTPException(400, "Unknown chokepoint")
+    if os.environ.get("AIS_PROVIDER") != "aisstream":
+        return {"scope":scope,"vessels":[],"matched":0,"fresh":0,"total":0,
+                "globalConnected":False,"retrievedAt":None}
+    result = await app.state.traffic.query(scope=scope,limit=10)
+    return {k:result[k] for k in ("scope","vessels","matched","fresh","total",
+            "globalConnected","retrievedAt","sourceUpdatedAt") if k in result}
