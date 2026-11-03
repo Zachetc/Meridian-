@@ -114,3 +114,23 @@ async def public_traffic(scope: str = "chokepoint1"):
     result = await app.state.traffic.query(scope=scope,limit=10)
     return {k:result[k] for k in ("scope","vessels","matched","fresh","total",
             "globalConnected","retrievedAt","sourceUpdatedAt") if k in result}
+
+# Public, bounded, deterministic analytical demonstrations. No secrets or database writes.
+@app.get("/public/passages", include_in_schema=False)
+async def public_passages():
+    return {"passages":[{"id":p["id"],"name":p["name"],"latitude":p["latitude"],
+        "longitude":p["longitude"],"region":p["region"],"category":p["category"],
+        "radiusKm":p["radiusKm"]} for p in PASSAGES.values()]}
+
+@app.post("/public/scenario", include_in_schema=False)
+async def public_scenario(body:ScenarioInput):
+    assumptions=Assumptions(**body.model_dump())
+    return {"modelVersion":CostModel.version,"assumptions":body.model_dump(),
+            "result":CostModel().run(assumptions)}
+
+@app.get("/public/network", include_in_schema=False)
+async def public_network(origin:str="Gulf",destination:str="Rotterdam",closed:str=""):
+    try:
+        return MaritimeNetwork().route(origin,destination,[s for s in closed.split(",") if s])
+    except ValueError as exc:
+        raise HTTPException(422,str(exc))
