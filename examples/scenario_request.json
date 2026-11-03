@@ -1,0 +1,10 @@
+{
+  "cargoValue": 2000000,
+  "units": 10000,
+  "delayHours": 48,
+  "likelihood": 25,
+  "dailyCost": 18000,
+  "annualRate": 12,
+  "passThrough": 50,
+  "seed": 42
+}
